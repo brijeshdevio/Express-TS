@@ -1,4 +1,4 @@
-import express from "express";
+import express, { type Response, type Request } from "express";
 import cors from "cors";
 import axios from "axios";
 import helmet from "helmet";
@@ -35,7 +35,7 @@ app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 app.use(morgan("combined")); // logs all requests
 
 // ======== ROOT ENDPOINT ========
-app.get("/", (req, res) => {
+app.get("/", (req: Request, res: Response) => {
   res.json({
     message: "Welcome to the API Proxy Backend",
     endpoints: {
@@ -98,7 +98,7 @@ app.post("/api/proxy", async (req, res) => {
       data: responseData,
     } = response;
 
-    const result = {
+    const result: Record<string, unknown> = {
       status,
       statusText,
       headers: resHeaders,
@@ -125,30 +125,51 @@ app.post("/api/proxy", async (req, res) => {
     }
 
     res.status(status).json(result);
-  } catch (err) {
-    if (err.response) {
-      // API responded with an error (status code not in 2xx range)
-      return res.status(err.response.status).json({
+  } catch (err: unknown) {
+    // Check if err is an object and has a 'response' property
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      "response" in err &&
+      typeof (err as any).response === "object"
+    ) {
+      const errorResponse = (
+        err as {
+          response: {
+            status: number;
+            statusText: string;
+            headers: Record<string, string>;
+            data: unknown;
+          };
+        }
+      ).response;
+
+      return res.status(errorResponse.status).json({
         error: "Target API returned an error",
-        status: err.response.status,
-        statusText: err.response.statusText,
-        headers: err.response.headers,
-        body: err.response.data,
+        status: errorResponse.status,
+        statusText: errorResponse.statusText,
+        headers: errorResponse.headers,
+        body: errorResponse.data,
       });
     }
 
-    if (err.request) {
-      // Request was made but no response received
+    // Check if the error is an AxiosError with a 'request' but no response
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      "request" in err &&
+      typeof (err as any).request === "object"
+    ) {
       return res.status(504).json({
         error: "No response from target API",
-        details: err.message,
+        details: (err as any).message,
       });
     }
 
-    // Other unexpected errors
+    // Unknown error
     return res.status(500).json({
       error: "Proxy request failed",
-      details: err.message,
+      details: (err as any).message ?? "Unknown error",
     });
   }
 });
