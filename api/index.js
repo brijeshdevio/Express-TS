@@ -132,8 +132,6 @@ app.post("/api/proxy", async (req, res) => {
         });
     }
 });
-// ======== START SERVER ========
-app.listen(PORT, () => {
-    console.log(`✅ Proxy running at http://localhost:${PORT}`);
-});
+// ======== EXPORT FOR VERCEL ========
+export default app;
 //# sourceMappingURL=index.js.map
